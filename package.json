@@ -1,0 +1,9 @@
+{
+  "name": "transit-challenge",
+  "version": "0.0.1",
+  "description": "How many STM buses are wheelchair accessible?",
+  "main": "index.js",
+  "repository": {},
+  "author": "Thomas Lefebvre <thmslbvr@gmail.com>",
+  "license": "MIT"
+}
