@@ -1,78 +1,96 @@
-// node >= 7.0.0
 // TODO re-write using function composition?
 // const compose = (a, b) => (...args) => a(b(...args));
 // or HOF
 
-const fs = require('fs');
-const path = require('path');
-
-// @link http://www.stm.info/en/about/developers/available-data-description
-const SERVICE_TYPE_BUS = '3';
-const ROUTE_TYPE_LABEL = 'route_type';
-const ROUTE_ID_LABEL = 'route_id';
-const WHEELCHAIR_ACCESSIBLE_LABEL = 'wheelchair_accessible';
-
-// @link https://developers.google.com/transit/gtfs/reference/trips-file
-const WHEELCHAIR_STATUS_UNKNOWN = '0';
-const WHEELCHAIR_STATUS_ACCESSIBLE = '1'
-const WHEELCHAIR_STATUS_NOT_ACCESSIBLE = '2';
-
-function format(string) {
-  const [head, ...rows] = string.split('\n');
-  const formattedRows = rows.map(row => row.split(','));
-
-  return [head.split(','), formattedRows];
+if (process.versions.node < '7.2.0') {
+  throw new Error('Awww dude, you\'re going to need at least node 7.2.0 to run this bad boy.');
 }
 
-function mapArrayValuesToObjectProps(labels, row) {
-  return labels.reduce((acc, current, index) => {
-    const prop = current.replace(/_+(.)/g, (match, character) => character.toUpperCase());
+console.time('timing');
 
-    return Object.assign({}, acc, {
-      [prop]: row[index]
-    })
+const { strictEqual } = require('assert');
+const { compose, readFile } = require('./helpers');
+const {
+  SERVICE_TYPE_BUS,
+  ROUTE_TYPE_LABEL,
+  ROUTE_ID_LABEL,
+  WHEELCHAIR_ACCESSIBLE_LABEL,
+  WHEELCHAIR_STATUS_UNKNOWN,
+  WHEELCHAIR_STATUS_ACCESSIBLE,
+  WHEELCHAIR_STATUS_NOT_ACCESSIBLE
+} = require('./constants');
+
+function format(responseAsPromise) {
+  return responseAsPromise.then(string => {
+    const [head, ...rows] = string.split('\n');
+    const formattedHead = head.split(',').map(label => (
+      label.replace(/_+(.)/g, (match, character) => character.toUpperCase())
+    ));
+
+    const formattedRows = rows.map(row => row.split(','));
+    return [formattedHead, formattedRows];
+  });
+}
+
+// Normalizing properties.
+function mapArrayValuesToObjectProps(labels, row, fields = []) {
+  return fields.reduce((accumulator, field) => {
+    const index = labels.indexOf(field);
+
+    return Object.assign({}, accumulator, {
+      [field]: row[index]
+    });
   }, {});
 }
 
-function getBuses([labels, rows]) {
+// TODO There is a possibility here to curry the map callback.
+function getBuses([labels, vehicules]) {
   const typeIndex = labels.indexOf(ROUTE_TYPE_LABEL);
 
-  return rows
-    .filter(row => row[typeIndex] === SERVICE_TYPE_BUS)
-    .reduce((buses, bus) => {
-      const { routeId, routeShortName, routeLongName } = mapArrayValuesToObjectProps(labels, bus);
-
-      return Object.assign({}, buses, {
-        [routeId]: { routeShortName, routeLongName }
-      });
-    }, {});
+  return vehicules
+    .filter(vehicule => vehicule[typeIndex] === SERVICE_TYPE_BUS)
+    .map(bus => {
+      return mapArrayValuesToObjectProps(labels, bus, [
+        'routeId',
+        'routeShortName',
+        'routeLongName'
+      ]);
+    });
 }
 
 function addTripsToBuses(buses, [labels, trips]) {
-  const routeIdIndex = labels.indexOf(ROUTE_ID_LABEL);
-  const busIds = Object.keys(buses);
+  const busIdIndex = labels.indexOf(ROUTE_ID_LABEL);
 
-  return trips
-    .filter(trip => busIds.includes(trip[routeIdIndex]))
-    .reduce((accumulator, trip) => {
-      const { routeId, wheelchairAccessible, tripId } = mapArrayValuesToObjectProps(labels, trip);
-      const originalBus = accumulator[routeId];
-      const prop = originalBus[wheelchairAccessible];
+  return buses.map(bus => {
+    const filtered = trips
+      .filter(trip => trip[busIdIndex] === bus.routeId)
+      .reduce((accumulator, trip) => {
+        const { wheelchairAccessible } = mapArrayValuesToObjectProps(labels, trip, ['wheelchairAccessible']);
+        const prop = accumulator[wheelchairAccessible];
 
-      const bus = Object.assign({}, originalBus, {
-        [wheelchairAccessible]: !!prop ? prop + 1 : 1
-      });
+        return Object.assign({}, accumulator, {
+          [wheelchairAccessible]: prop ? prop + 1 : 1
+        });
+      }, {});
 
-      return Object.assign({}, accumulator, {
-        [routeId]: bus
-      });
-    }, buses);
+
+    return Object.assign({}, bus, filtered);
+  });
 }
 
-console.time('time');
-const routes = format(fs.readFileSync(path.join(__dirname, 'data', 'routes.txt'), 'utf8'));
-const trips = format(fs.readFileSync(path.join(__dirname, 'data', 'trips.txt'), 'utf8'));
+const readAndFormat = compose(format, readFile);
+const routesPromise = readAndFormat('routes');
+const tripsPromise = readAndFormat('trips');
 
-const buses = getBuses(routes);
-console.log(addTripsToBuses(buses, trips));
-console.timeEnd('time');
+routesPromise
+  .then(async (routes) => {
+    const trips = await tripsPromise;
+    const buses = addTripsToBuses(getBuses(routes), trips);
+
+    console.timeEnd('timing'); // Some inaccurate benchmark.
+
+    // Simple tests to assert my output after the refactoring.
+    const busTest = buses.find(bus => bus.routeId === '747');
+    strictEqual(busTest[WHEELCHAIR_STATUS_ACCESSIBLE], 1163);
+    strictEqual(busTest[WHEELCHAIR_STATUS_NOT_ACCESSIBLE], 704);
+  });
