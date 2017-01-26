@@ -16,6 +16,9 @@ If you wish to install it and run it on your local machine, please follow the st
 
 **Make sure you're using at least node 7.2.0 and the `--harmony` flag since this script is using features that may not be available in other versions.**
 
+## Output
+![Terminal output](https://d17oy1vhnax1f7.cloudfront.net/items/1l2o0r210t3n1W0j0J1c/Screen%20Shot%202017-01-26%20at%2010.11.25%20AM.png?v=42d3fac4)
+
 ## Disclaimer
 This tool uses the latest data provided by the [STM](http://www.stm.info/en/about/developers). If you see any errors or mistakes, please let me know by opening an issue in this repo. ✌.
 
