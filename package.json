@@ -5,5 +5,8 @@
   "main": "index.js",
   "repository": {},
   "author": "Thomas Lefebvre <thmslbvr@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "cli-table": "^0.3.1"
+  }
 }
