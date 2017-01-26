@@ -110,7 +110,7 @@ function addTripsToBuses(buses, [labels, trips]) {
  */
 function generateTable(buses) {
   const table = new Table({
-    head: ['Bus line', 'Bus line name', 'Total Trips', '% Accessible trips', '% Non accessible trips']
+    head: ['Bus line', 'Bus line name', 'Total Trips', '% Front-door ramps', '% Rear-door ramps']
   });
 
   const rows = buses.map(bus => {
