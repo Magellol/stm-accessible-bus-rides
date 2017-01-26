@@ -2,8 +2,9 @@ if (process.versions.node < '7.2.0') {
   throw new Error('Awww dude, you\'re going to need at least node 7.2.0 to run this bad boy.');
 }
 
+const Table = require('cli-table');
 const { strictEqual } = require('assert');
-const { compose, readDataFile, writeToCache } = require('./helpers');
+const { compose, readDataFile, writeToCache, getPercentage } = require('./helpers');
 const {
   SERVICE_TYPE_BUS,
   ROUTE_TYPE_LABEL,
@@ -101,6 +102,40 @@ function addTripsToBuses(buses, [labels, trips]) {
   });
 }
 
+/**
+ * Generate a CLI table we're going to display.
+ *
+ * @param  {array} buses  Array of buses with their trips.
+ * @return {Table}        A full table object, ready to be displayed.
+ */
+function generateTable(buses) {
+  const table = new Table({
+    head: ['Bus line', 'Bus line name', 'Total Trips', '% Accessible trips', '% Non accessible trips']
+  });
+
+  const rows = buses.map(bus => {
+    const {
+      routeShortName,
+      routeLongName,
+      [WHEELCHAIR_STATUS_ACCESSIBLE]: accessible = 0,
+      [WHEELCHAIR_STATUS_NOT_ACCESSIBLE]: nonAccessible = 0
+    } = bus;
+
+    const totalTrips = accessible + nonAccessible;
+
+    return [
+      routeShortName,
+      routeLongName,
+      totalTrips,
+      `${getPercentage(accessible, totalTrips)}% (${accessible})`,
+      `${getPercentage(nonAccessible, totalTrips)}% (${nonAccessible})`
+    ];
+  });
+
+  table.push(...rows);
+  return table;
+}
+
 // Composes a new function out of format and readDataFile.
 // It will read the file and returned a Promise that'd resolve in the formatted string.
 const readAndFormat = compose(format, readDataFile);
@@ -122,6 +157,9 @@ cache.then(
   }
 )
 .then(buses => {
+  const output = generateTable(buses);
+  console.log(output.toString());
+
   // Really simple test to validate potential refactors.
   const busTest = buses.find(bus => bus.routeId === '747'); // ;)
   strictEqual(busTest[WHEELCHAIR_STATUS_ACCESSIBLE], 1163);
