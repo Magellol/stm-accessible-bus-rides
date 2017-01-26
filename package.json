@@ -1,9 +1,9 @@
 {
-  "name": "transit-challenge",
+  "name": "stm-accessible-bus-rides",
   "version": "0.0.1",
-  "description": "How many STM buses are wheelchair accessible?",
+  "description": "How many STM buses have front-door access ramps?",
   "main": "index.js",
-  "repository": {},
+  "repository": "git@github.com:Magellol/stm-accessible-bus-rides.git",
   "author": "Thomas Lefebvre <thmslbvr@gmail.com>",
   "license": "MIT",
   "dependencies": {
